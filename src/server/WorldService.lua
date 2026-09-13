@@ -39,6 +39,47 @@ local function spawnBreakable(parent: Instance, kind: string, position: Vector3)
     CollectionService:AddTag(model, "Breakable")
 end
 
+local function spawnEggStation(parent: Instance, position: Vector3)
+    local model = Instance.new("Model")
+    model.Name = "GreenEggStation"
+    model.Parent = parent
+
+    local pedestal = makePart(model, "Pedestal", Vector3.new(10, 2, 10), position, Color3.fromRGB(244, 218, 112), Enum.Material.SmoothPlastic)
+    local egg = makePart(model, "Egg", Vector3.new(6, 8, 6), position + Vector3.new(0, 5, 0), Color3.fromRGB(132, 239, 112), Enum.Material.SmoothPlastic)
+    egg.Shape = Enum.PartType.Ball
+    egg.TopSurface = Enum.SurfaceType.Smooth
+    egg.BottomSurface = Enum.SurfaceType.Smooth
+
+    local prompt = Instance.new("ProximityPrompt")
+    prompt.Name = "HatchPrompt"
+    prompt.ActionText = "Hatch • 120 Coins"
+    prompt.ObjectText = "Green Valley Egg"
+    prompt.HoldDuration = 0
+    prompt.MaxActivationDistance = 12
+    prompt.RequiresLineOfSight = false
+    prompt:SetAttribute("EggId", "GreenEgg")
+    prompt.Parent = pedestal
+    CollectionService:AddTag(prompt, "EggPrompt")
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "EggSign"
+    billboard.Size = UDim2.fromOffset(250, 85)
+    billboard.StudsOffset = Vector3.new(0, 8, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = egg
+    billboard.Parent = egg
+
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.fromScale(1, 1)
+    text.BackgroundTransparency = 1
+    text.Text = "GREEN EGG\n120 COINS"
+    text.TextColor3 = Color3.new(1, 1, 1)
+    text.TextStrokeTransparency = 0
+    text.TextScaled = true
+    text.Font = Enum.Font.GothamBlack
+    text.Parent = billboard
+end
+
 function WorldService.Build()
     if workspace:FindFirstChild("GeneratedWorld") then return end
     local world = Instance.new("Folder")
@@ -72,6 +113,7 @@ function WorldService.Build()
 
     local sell = makePart(zone, "SellPad", Vector3.new(16, 1, 12), Vector3.new(-24, 0.6, -58), Color3.fromRGB(255, 214, 52), Enum.Material.Neon)
     sell:SetAttribute("SellPad", true)
+    spawnEggStation(zone, Vector3.new(31, 1, -48))
 
     local spawn = Instance.new("SpawnLocation")
     spawn.Name = "GreenValleySpawn"
