@@ -5,10 +5,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local Upgrades = require(ReplicatedStorage.Shared.Upgrades)
 local Pets = require(ReplicatedStorage.Shared.Pets)
-local store = DataStoreService:GetDataStore(GameConfig.DataStoreName)
 
 local DataService = {}
 local saving: {[Player]: boolean} = {}
+local store = nil
+local dataStoreAvailable = false
+
+local storeOk, storeOrError = pcall(function()
+    return DataStoreService:GetDataStore(GameConfig.DataStoreName)
+end)
+if storeOk then
+    store = storeOrError
+    dataStoreAvailable = true
+else
+    warn("[DataService] DataStore unavailable; running with temporary session data:", storeOrError)
+end
 
 local function key(player: Player): string
     return "player_" .. player.UserId
@@ -41,8 +52,10 @@ end
 
 function DataService.Load(player: Player)
     local data
-    local ok, err = pcall(function() data = store:GetAsync(key(player)) end)
-    if not ok then warn("[DataService] load failed", player.UserId, err) end
+    if dataStoreAvailable and store then
+        local ok, err = pcall(function() data = store:GetAsync(key(player)) end)
+        if not ok then warn("[DataService] load failed", player.UserId, err) end
+    end
     data = type(data) == "table" and data or {}
     return {
         Coins = math.max(0, math.floor(tonumber(data.Coins) or GameConfig.StarterCoins)),
@@ -80,6 +93,7 @@ local function folderValues(player, folderName)
 end
 
 function DataService.Save(player: Player)
+    if not dataStoreAvailable or not store then return end
     if saving[player] then return end
     local stats = player:FindFirstChild("leaderstats")
     local coins = stats and stats:FindFirstChild("Coins")
@@ -138,7 +152,9 @@ function DataService.StartAutosave()
     task.spawn(function()
         while true do
             task.wait(GameConfig.AutosaveSeconds)
-            for _, player in Players:GetPlayers() do task.spawn(DataService.Save, player) end
+            if dataStoreAvailable then
+                for _, player in Players:GetPlayers() do task.spawn(DataService.Save, player) end
+            end
         end
     end)
 end
