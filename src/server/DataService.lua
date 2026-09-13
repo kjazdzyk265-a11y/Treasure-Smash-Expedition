@@ -43,6 +43,8 @@ function DataService.Load(player: Player)
     return {
         Coins = math.max(0, math.floor(tonumber(data.Coins) or GameConfig.StarterCoins)),
         Power = math.max(1, math.floor(tonumber(data.Power) or 1)),
+        Gems = math.max(0, math.floor(tonumber(data.Gems) or 0)),
+        Rebirths = math.max(0, math.floor(tonumber(data.Rebirths) or 0)),
         ToolIndex = math.max(1, math.floor(tonumber(data.ToolIndex) or 1)),
         HighestZone = math.clamp(math.floor(tonumber(data.HighestZone) or 1), 1, 6),
         BackpackLoot = math.max(0, math.floor(tonumber(data.BackpackLoot) or 0)),
@@ -58,7 +60,9 @@ function DataService.Save(player: Player)
     local stats = player:FindFirstChild("leaderstats")
     local coins = stats and stats:FindFirstChild("Coins")
     local power = stats and stats:FindFirstChild("Power")
-    if not coins or not power then return end
+    local gems = stats and stats:FindFirstChild("Gems")
+    local rebirths = stats and stats:FindFirstChild("Rebirths")
+    if not coins or not power or not gems or not rebirths then return end
 
     local upgradesPayload = {}
     local upgrades = player:FindFirstChild("Upgrades")
@@ -85,6 +89,8 @@ function DataService.Save(player: Player)
     local payload = {
         Coins = coins.Value,
         Power = power.Value,
+        Gems = gems.Value,
+        Rebirths = rebirths.Value,
         ToolIndex = player:GetAttribute("ToolIndex") or 1,
         HighestZone = player:GetAttribute("HighestZone") or 1,
         BackpackLoot = player:GetAttribute("BackpackLoot") or 0,

@@ -8,6 +8,7 @@ local ProgressionService = require(script.Parent.ProgressionService)
 local PetService = require(script.Parent.PetService)
 local ZoneService = require(script.Parent.ZoneService)
 local BackpackService = require(script.Parent.BackpackService)
+local RebirthService = require(script.Parent.RebirthService)
 local Upgrades = require(ReplicatedStorage.Shared.Upgrades)
 
 WorldService.Build()
@@ -16,6 +17,7 @@ ProgressionService.Start()
 PetService.Start()
 ZoneService.Start()
 BackpackService.Start()
+RebirthService.Start()
 DataService.StartAutosave()
 
 local function setupPlayer(player: Player)
@@ -23,6 +25,8 @@ local function setupPlayer(player: Player)
     local stats = Instance.new("Folder"); stats.Name = "leaderstats"; stats.Parent = player
     local coins = Instance.new("IntValue"); coins.Name = "Coins"; coins.Value = loaded.Coins; coins.Parent = stats
     local power = Instance.new("IntValue"); power.Name = "Power"; power.Value = loaded.Power; power.Parent = stats
+    local gems = Instance.new("IntValue"); gems.Name = "Gems"; gems.Value = loaded.Gems; gems.Parent = stats
+    local rebirths = Instance.new("IntValue"); rebirths.Name = "Rebirths"; rebirths.Value = loaded.Rebirths; rebirths.Parent = stats
 
     local upgradesFolder = Instance.new("Folder"); upgradesFolder.Name = "Upgrades"; upgradesFolder.Parent = player
     for name,cfg in pairs(Upgrades) do
@@ -35,9 +39,17 @@ local function setupPlayer(player: Player)
     player:SetAttribute("HighestZone",loaded.HighestZone)
     player:SetAttribute("CurrentZone",1)
     player:SetAttribute("BackpackLoot",loaded.BackpackLoot or 0)
+    player:SetAttribute("Rebirths", loaded.Rebirths)
+    player:SetAttribute("ComboCount", 0)
+    player:SetAttribute("ComboMultiplier", 1)
     ProgressionService.ApplyDerivedStats(player)
     BackpackService.Refresh(player)
     PetService.LoadPlayer(player,loaded.Pets,loaded.Equipped,loaded.PetIndex)
+
+    player.CharacterAdded:Connect(function()
+        task.wait()
+        ProgressionService.ApplyDerivedStats(player)
+    end)
 end
 
 for _,player in Players:GetPlayers() do task.spawn(setupPlayer,player) end
@@ -49,4 +61,4 @@ game:BindToClose(function()
     task.wait(2)
 end)
 
-print("[TreasureSmash] Core progression, backpack, pets and six-zone world started")
+print("[TreasureSmash] Core progression, skill smash, rebirth, backpack, pets and six-zone world started")

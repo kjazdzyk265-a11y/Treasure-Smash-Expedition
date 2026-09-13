@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tools = require(ReplicatedStorage.Shared.Tools)
@@ -9,6 +10,7 @@ local ProgressionService = {}
 local purchaseToolRemote = Remotes.GetOrCreate("PurchaseTool")
 local purchaseUpgradeRemote = Remotes.GetOrCreate("PurchaseUpgrade")
 local progressionFeedback = Remotes.GetOrCreate("ProgressionFeedback")
+local lastPurchase: {[Player]: number} = {}
 
 local function getCoins(player: Player): IntValue?
     local stats = player:FindFirstChild("leaderstats")
@@ -21,21 +23,32 @@ local function getUpgradeFolder(player: Player): Folder?
     return folder and folder:IsA("Folder") and folder or nil
 end
 
+local function getLevel(player, name)
+    local folder = getUpgradeFolder(player)
+    local value = folder and folder:FindFirstChild(name)
+    return value and value:IsA("IntValue") and value.Value or 0
+end
+
+local function applyMovement(player)
+    local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = tonumber(player:GetAttribute("MovementSpeed")) or 16
+    end
+end
+
 function ProgressionService.ApplyDerivedStats(player: Player)
     local toolIndex = math.clamp(player:GetAttribute("ToolIndex") or 1, 1, #Tools)
     local tool = Tools[toolIndex]
-    local upgrades = getUpgradeFolder(player)
+    local rebirths = math.max(0, tonumber(player:GetAttribute("Rebirths")) or 0)
+    local rebirthMultiplier = 1 + rebirths * 0.225
 
-    local function level(name: string): number
-        local value = upgrades and upgrades:FindFirstChild(name)
-        return value and value:IsA("IntValue") and value.Value or 0
-    end
-
-    local damageMultiplier = 1 + level("Damage") * Upgrades.Damage.PerLevel
-    local attackMultiplier = 1 + level("AttackSpeed") * Upgrades.AttackSpeed.PerLevel
-    local rangeBonus = level("Range") * Upgrades.Range.PerLevel
-    local critBonus = level("CritChance") * Upgrades.CritChance.PerLevel
-    local coinMultiplier = 1 + level("CoinGain") * Upgrades.CoinGain.PerLevel
+    local damageMultiplier = (1 + getLevel(player, "Damage") * Upgrades.Damage.PerLevel) * rebirthMultiplier
+    local attackMultiplier = 1 + getLevel(player, "AttackSpeed") * Upgrades.AttackSpeed.PerLevel
+    local rangeBonus = getLevel(player, "Range") * Upgrades.Range.PerLevel
+    local critBonus = getLevel(player, "CritChance") * Upgrades.CritChance.PerLevel
+    local coinMultiplier = (1 + getLevel(player, "CoinGain") * Upgrades.CoinGain.PerLevel) * rebirthMultiplier
+    local movementSpeed = 16 + getLevel(player, "MovementSpeed") * Upgrades.MovementSpeed.PerLevel
 
     player:SetAttribute("ToolName", tool.Name)
     player:SetAttribute("SmashDamage", tool.Damage * damageMultiplier)
@@ -43,10 +56,22 @@ function ProgressionService.ApplyDerivedStats(player: Player)
     player:SetAttribute("SmashRange", 24 + rangeBonus)
     player:SetAttribute("CritChance", 0.08 + critBonus)
     player:SetAttribute("CoinMultiplier", coinMultiplier)
-    player:SetAttribute("TrainingMultiplier", tool.TrainingMultiplier)
+    player:SetAttribute("TrainingMultiplier", tool.TrainingMultiplier * rebirthMultiplier)
+    player:SetAttribute("MovementSpeed", movementSpeed)
+    player:SetAttribute("LuckMultiplier", 1 + getLevel(player, "Luck") * Upgrades.Luck.PerLevel)
+    player:SetAttribute("RebirthMultiplier", rebirthMultiplier)
+    applyMovement(player)
+end
+
+local function rateLimited(player)
+    local now = os.clock()
+    if now - (lastPurchase[player] or 0) < 0.15 then return true end
+    lastPurchase[player] = now
+    return false
 end
 
 local function purchaseTool(player: Player)
+    if rateLimited(player) then return end
     local current = math.clamp(player:GetAttribute("ToolIndex") or 1, 1, #Tools)
     local nextIndex = current + 1
     local nextTool = Tools[nextIndex]
@@ -68,7 +93,7 @@ local function purchaseTool(player: Player)
 end
 
 local function purchaseUpgrade(player: Player, name: any)
-    if typeof(name) ~= "string" then return end
+    if rateLimited(player) or typeof(name) ~= "string" then return end
     local cfg = Upgrades[name]
     if type(cfg) ~= "table" or not cfg.BaseCost then return end
 
@@ -94,12 +119,9 @@ local function purchaseUpgrade(player: Player, name: any)
 end
 
 function ProgressionService.Start()
-    purchaseToolRemote.OnServerEvent:Connect(function(player)
-        purchaseTool(player)
-    end)
-    purchaseUpgradeRemote.OnServerEvent:Connect(function(player, name)
-        purchaseUpgrade(player, name)
-    end)
+    purchaseToolRemote.OnServerEvent:Connect(purchaseTool)
+    purchaseUpgradeRemote.OnServerEvent:Connect(purchaseUpgrade)
+    Players.PlayerRemoving:Connect(function(player) lastPurchase[player] = nil end)
 end
 
 return ProgressionService
