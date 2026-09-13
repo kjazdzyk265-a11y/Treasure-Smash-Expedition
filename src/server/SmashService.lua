@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local Breakables = require(ReplicatedStorage.Shared.Breakables)
@@ -24,11 +23,17 @@ local function getTargetModel(target: Instance?): Model?
     return nil
 end
 
-local function awardCoins(player: Player, amount: number)
+local function award(player: Player, baseCoins: number)
     local stats = player:FindFirstChild("leaderstats")
     local coins = stats and stats:FindFirstChild("Coins")
+    local power = stats and stats:FindFirstChild("Power")
+    local coinMultiplier = tonumber(player:GetAttribute("CoinMultiplier")) or 1
+    local trainingMultiplier = tonumber(player:GetAttribute("TrainingMultiplier")) or 1
     if coins and coins:IsA("IntValue") then
-        coins.Value += amount
+        coins.Value += math.max(1, math.floor(baseCoins * coinMultiplier + 0.5))
+    end
+    if power and power:IsA("IntValue") then
+        power.Value += math.max(1, math.floor(trainingMultiplier + 0.5))
     end
 end
 
@@ -51,19 +56,24 @@ end
 
 local function processSmash(player: Player, target: Instance?)
     local now = os.clock()
-    if now - (lastSmash[player] or 0) < GameConfig.SmashCooldown then return end
+    local attackSpeed = math.max(0.1, tonumber(player:GetAttribute("AttackSpeed")) or 1)
+    local cooldown = GameConfig.SmashCooldown / attackSpeed
+    if now - (lastSmash[player] or 0) < cooldown then return end
     lastSmash[player] = now
 
     local root = getRoot(player)
     local model = getTargetModel(target)
     if not root or not model or model:GetAttribute("Alive") ~= true or not model.PrimaryPart then return end
-    if (root.Position - model.PrimaryPart.Position).Magnitude > GameConfig.MaxSmashDistance then return end
+
+    local range = math.clamp(tonumber(player:GetAttribute("SmashRange")) or GameConfig.MaxSmashDistance, 8, 60)
+    if (root.Position - model.PrimaryPart.Position).Magnitude > range then return end
 
     local health = model:GetAttribute("Health")
     if typeof(health) ~= "number" or health <= 0 then return end
 
-    local damage = GameConfig.StarterDamage
-    local critical = math.random() < GameConfig.BaseCritChance
+    local damage = math.max(1, tonumber(player:GetAttribute("SmashDamage")) or GameConfig.StarterDamage)
+    local critChance = math.clamp(tonumber(player:GetAttribute("CritChance")) or GameConfig.BaseCritChance, 0, 0.5)
+    local critical = math.random() < critChance
     if critical then damage *= GameConfig.CritMultiplier end
 
     local newHealth = math.max(0, health - damage)
@@ -72,7 +82,7 @@ local function processSmash(player: Player, target: Instance?)
 
     if newHealth <= 0 then
         model:SetAttribute("Alive", false)
-        awardCoins(player, model:GetAttribute("Reward") or 0)
+        award(player, model:GetAttribute("Reward") or 0)
         for _, obj in model:GetDescendants() do
             if obj:IsA("BasePart") then
                 obj.Transparency = 0.78
