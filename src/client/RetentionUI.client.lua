@@ -9,6 +9,11 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local claimRemote = remotes:WaitForChild("RetentionClaim")
 local feedbackRemote = remotes:WaitForChild("RetentionFeedback")
 
+local PET_COUNT = 0
+for _, pet in pairs(Pets) do
+    if type(pet) == "table" and pet.Id then PET_COUNT += 1 end
+end
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "RetentionUI"
 gui.ResetOnSpawn = false
@@ -135,7 +140,7 @@ local function refresh()
     local index = player:FindFirstChild("PetIndex")
     local discovered = index and #index:GetChildren() or 0
     local achievements = player:GetAttribute("AchievementCount") or 0
-    summary.Text = "INDEX "..discovered.."/"..#Pets.."  •  ACHIEVEMENTS "..achievements.."/6"
+    summary.Text = "INDEX "..discovered.."/"..PET_COUNT.."  •  ACHIEVEMENTS "..achievements.."/6"
     local streak = player:GetAttribute("DailyStreak") or 0
     local ready = player:GetAttribute("DailyReady") == true
     daily.Text = ready and ("CLAIM DAILY REWARD • DAY "..((streak % 7)+1)) or ("DAILY CLAIMED • STREAK "..streak.."/7")
