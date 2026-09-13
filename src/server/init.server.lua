@@ -5,11 +5,13 @@ local WorldService = require(script.Parent.WorldService)
 local SmashService = require(script.Parent.SmashService)
 local DataService = require(script.Parent.DataService)
 local ProgressionService = require(script.Parent.ProgressionService)
+local PetService = require(script.Parent.PetService)
 local Upgrades = require(ReplicatedStorage.Shared.Upgrades)
 
 WorldService.Build()
 SmashService.Start()
 ProgressionService.Start()
+PetService.Start()
 DataService.StartAutosave()
 
 local function setupPlayer(player: Player)
@@ -43,11 +45,13 @@ local function setupPlayer(player: Player)
     end
 
     player:SetAttribute("ToolIndex", loaded.ToolIndex)
+    player:SetAttribute("HighestZone", loaded.HighestZone)
     ProgressionService.ApplyDerivedStats(player)
+    PetService.LoadPlayer(player, loaded.Pets, loaded.Equipped, loaded.PetIndex)
 end
 
 for _, player in Players:GetPlayers() do
-    setupPlayer(player)
+    task.spawn(setupPlayer, player)
 end
 Players.PlayerAdded:Connect(setupPlayer)
 Players.PlayerRemoving:Connect(DataService.Save)
@@ -58,4 +62,4 @@ game:BindToClose(function()
     end
 end)
 
-print("[TreasureSmash] Progression vertical slice started")
+print("[TreasureSmash] Tools, upgrades and pets systems started")
