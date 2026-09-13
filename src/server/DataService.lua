@@ -48,6 +48,7 @@ function DataService.Load(player: Player)
         Coins = math.max(0, math.floor(tonumber(data.Coins) or GameConfig.StarterCoins)),
         Power = math.max(1, math.floor(tonumber(data.Power) or 1)),
         Gems = math.max(0, math.floor(tonumber(data.Gems) or 0)),
+        EventTokens = math.max(0, math.floor(tonumber(data.EventTokens) or 0)),
         Rebirths = math.max(0, math.floor(tonumber(data.Rebirths) or 0)),
         ToolIndex = math.max(1, math.floor(tonumber(data.ToolIndex) or 1)),
         HighestZone = math.clamp(math.floor(tonumber(data.HighestZone) or 1), 1, 6),
@@ -56,6 +57,7 @@ function DataService.Load(player: Player)
         Pets = sanitizePets(data.Pets),
         Equipped = safeTable(data.Equipped),
         PetIndex = safeTable(data.PetIndex),
+        Settings = safeTable(data.Settings),
         Retention = {
             Quests = safeTable(data.QuestProgress),
             ClaimedQuests = safeTable(data.ClaimedQuests),
@@ -83,10 +85,10 @@ function DataService.Save(player: Player)
     local coins = stats and stats:FindFirstChild("Coins")
     local power = stats and stats:FindFirstChild("Power")
     local gems = stats and stats:FindFirstChild("Gems")
+    local eventTokens = stats and stats:FindFirstChild("EventTokens")
     local rebirths = stats and stats:FindFirstChild("Rebirths")
-    if not coins or not power or not gems or not rebirths then return end
+    if not coins or not power or not gems or not eventTokens or not rebirths then return end
 
-    local upgradesPayload = folderValues(player, "Upgrades")
     local petsPayload = {}
     local petsFolder = player:FindFirstChild("Pets")
     if petsFolder then
@@ -109,14 +111,16 @@ function DataService.Save(player: Player)
         Coins = coins.Value,
         Power = power.Value,
         Gems = gems.Value,
+        EventTokens = eventTokens.Value,
         Rebirths = rebirths.Value,
         ToolIndex = player:GetAttribute("ToolIndex") or 1,
         HighestZone = player:GetAttribute("HighestZone") or 1,
         BackpackLoot = player:GetAttribute("BackpackLoot") or 0,
-        Upgrades = upgradesPayload,
+        Upgrades = folderValues(player, "Upgrades"),
         Pets = petsPayload,
         Equipped = equippedPayload,
         PetIndex = indexPayload,
+        Settings = folderValues(player, "Settings"),
         QuestProgress = folderValues(player, "QuestProgress"),
         ClaimedQuests = folderValues(player, "ClaimedQuests"),
         AchievementProgress = folderValues(player, "AchievementProgress"),

@@ -11,6 +11,7 @@ local BackpackService = require(script.Parent.BackpackService)
 local RebirthService = require(script.Parent.RebirthService)
 local RetentionService = require(script.Parent.RetentionService)
 local MeteorService = require(script.Parent.MeteorService)
+local SettingsService = require(script.Parent.SettingsService)
 local Upgrades = require(ReplicatedStorage.Shared.Upgrades)
 
 WorldService.Build()
@@ -22,6 +23,7 @@ BackpackService.Start()
 RebirthService.Start()
 RetentionService.Start()
 MeteorService.Start()
+SettingsService.Start()
 DataService.StartAutosave()
 
 local function setupPlayer(player: Player)
@@ -30,6 +32,7 @@ local function setupPlayer(player: Player)
     local coins = Instance.new("IntValue"); coins.Name = "Coins"; coins.Value = loaded.Coins; coins.Parent = stats
     local power = Instance.new("IntValue"); power.Name = "Power"; power.Value = loaded.Power; power.Parent = stats
     local gems = Instance.new("IntValue"); gems.Name = "Gems"; gems.Value = loaded.Gems; gems.Parent = stats
+    local eventTokens = Instance.new("IntValue"); eventTokens.Name = "EventTokens"; eventTokens.Value = loaded.EventTokens; eventTokens.Parent = stats
     local rebirths = Instance.new("IntValue"); rebirths.Name = "Rebirths"; rebirths.Value = loaded.Rebirths; rebirths.Parent = stats
 
     local upgradesFolder = Instance.new("Folder"); upgradesFolder.Name = "Upgrades"; upgradesFolder.Parent = player
@@ -46,6 +49,7 @@ local function setupPlayer(player: Player)
     player:SetAttribute("Rebirths", loaded.Rebirths)
     player:SetAttribute("ComboCount", 0)
     player:SetAttribute("ComboMultiplier", 1)
+    SettingsService.LoadPlayer(player, loaded.Settings)
     ProgressionService.ApplyDerivedStats(player)
     BackpackService.Refresh(player)
     PetService.LoadPlayer(player,loaded.Pets,loaded.Equipped,loaded.PetIndex)
@@ -66,4 +70,4 @@ game:BindToClose(function()
     task.wait(2)
 end)
 
-print("[TreasureSmash] Core progression, meteor event, onboarding, retention, rebirth, backpack, pets and six-zone world started")
+print("[TreasureSmash] V1 systems started: world, smash, pets, progression, retention, meteor, settings and persistence")
