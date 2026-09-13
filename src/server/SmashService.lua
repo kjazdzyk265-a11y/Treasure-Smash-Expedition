@@ -8,6 +8,7 @@ local Zones = require(ReplicatedStorage.Shared.Zones)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local BackpackService = require(script.Parent.BackpackService)
 local RetentionService = require(script.Parent.RetentionService)
+local MeteorService = require(script.Parent.MeteorService)
 
 local SmashService = {}
 local lastSmash: {[Player]: number} = {}
@@ -31,7 +32,7 @@ end
 local function getTargetModel(target)
     if not target then return nil end
     local model = target:IsA("Model") and target or target:FindFirstAncestorOfClass("Model")
-    if model and model:GetAttribute("BreakableType") then return model end
+    if model and (model:GetAttribute("BreakableType") or model:GetAttribute("EventMeteor")) then return model end
     return nil
 end
 
@@ -136,6 +137,14 @@ local function processSmash(player, target)
     if perfect then
         damage *= GameConfig.PerfectMultiplier
         RetentionService.Record(player, "Perfect", 1)
+    end
+
+    if model:GetAttribute("EventMeteor") == true then
+        local newHealth = MeteorService.ApplyDamage(player, model, damage)
+        if newHealth == nil then return end
+        feedbackRemote:FireClient(player, model, damage, critical, newHealth, model:GetAttribute("MaxHealth"), "Meteor", perfect, combo, comboMult)
+        scheduleNextPerfect(player, now, cooldown)
+        return
     end
 
     local newHealth = math.max(0, health - damage)
