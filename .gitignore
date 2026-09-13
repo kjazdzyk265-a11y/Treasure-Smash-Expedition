@@ -1,0 +1,15 @@
+# Roblox / Rojo outputs
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# Local tooling
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+tmp/
