@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -7,12 +8,24 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local PetService = {}
 local rng = Random.new()
-local lastRequest: {[Player]: number} = {}
+local requestTimes: {[Player]: {[string]: number}} = {}
 
 local hatchRemote = Remotes.GetOrCreate("HatchPet")
 local actionRemote = Remotes.GetOrCreate("PetAction")
 local fuseRemote = Remotes.GetOrCreate("FusePets")
 local feedbackRemote = Remotes.GetOrCreate("PetFeedback")
+
+local function allow(player: Player, key: string, cooldown: number): boolean
+    local bucket = requestTimes[player]
+    if not bucket then
+        bucket = {}
+        requestTimes[player] = bucket
+    end
+    local now = os.clock()
+    if now - (bucket[key] or 0) < cooldown then return false end
+    bucket[key] = now
+    return true
+end
 
 local function getCoins(player: Player): IntValue?
     local stats = player:FindFirstChild("leaderstats")
@@ -55,7 +68,6 @@ local function createPet(player: Player, petId: string, variant: string?, uid: s
     local cfg = Pets.Get(petId)
     local folder = getPetFolder(player)
     if not cfg or not folder then return nil end
-
     local value = Instance.new("StringValue")
     value.Name = uid or HttpService:GenerateGUID(false)
     value.Value = petId
@@ -78,7 +90,6 @@ function PetService.RefreshPower(player: Player)
     local pets = getPetFolder(player)
     local equipped = getEquippedFolder(player)
     if not pets or not equipped then return end
-
     local total = 0
     for _, slot in equipped:GetChildren() do
         local pet = pets:FindFirstChild(slot.Name)
@@ -100,7 +111,6 @@ local function equip(player: Player, uid: string)
     if not pets or not equipped then return end
     local pet = pets:FindFirstChild(uid)
     if not pet or not pet:IsA("StringValue") then return end
-
     local existing = equipped:FindFirstChild(uid)
     if existing then
         existing:Destroy()
@@ -123,17 +133,13 @@ local function equipBest(player: Player)
     local equipped = getEquippedFolder(player)
     if not pets or not equipped then return end
     equipped:ClearAllChildren()
-
     local candidates = {}
     for _, pet in pets:GetChildren() do
-        if pet:IsA("StringValue") then
-            table.insert(candidates, pet)
-        end
+        if pet:IsA("StringValue") then table.insert(candidates, pet) end
     end
     table.sort(candidates, function(a, b)
         return Pets.GetEffectivePower(a.Value, a:GetAttribute("Variant")) > Pets.GetEffectivePower(b.Value, b:GetAttribute("Variant"))
     end)
-
     for index = 1, math.min(getEquipLimit(player), #candidates) do
         local pet = candidates[index]
         local slot = Instance.new("StringValue")
@@ -149,16 +155,12 @@ local function hatch(player: Player, eggId: any)
     local egg = Eggs[eggId]
     if type(egg) ~= "table" or not egg.Pets then return end
     local highestZone = math.clamp(tonumber(player:GetAttribute("HighestZone")) or 1, 1, 6)
-    if egg.Zone > highestZone then
-        feedbackRemote:FireClient(player, false, "ZONE LOCKED")
-        return
-    end
+    if egg.Zone > highestZone then feedbackRemote:FireClient(player, false, "ZONE LOCKED") return end
     local coins = getCoins(player)
     if not coins or coins.Value < egg.Price then
         feedbackRemote:FireClient(player, false, "NEED " .. tostring(egg.Price) .. " COINS")
         return
     end
-
     coins.Value -= egg.Price
     local petId = Eggs.Roll(eggId, rng)
     local value = petId and createPet(player, petId, "Normal") or nil
@@ -173,7 +175,6 @@ local function fuse(player: Player, petId: any, variant: any)
     if not nextVariant or not Pets.Get(petId) then return end
     local pets = getPetFolder(player)
     if not pets then return end
-
     local matches = {}
     for _, pet in pets:GetChildren() do
         if pet:IsA("StringValue") and pet.Value == petId and pet:GetAttribute("Variant") == variant and pet:GetAttribute("Locked") ~= true then
@@ -181,11 +182,7 @@ local function fuse(player: Player, petId: any, variant: any)
             if #matches >= 5 then break end
         end
     end
-    if #matches < 5 then
-        feedbackRemote:FireClient(player, false, "NEED 5 MATCHING PETS")
-        return
-    end
-
+    if #matches < 5 then feedbackRemote:FireClient(player, false, "NEED 5 MATCHING PETS") return end
     for _, pet in matches do
         removeEquippedUid(player, pet.Name)
         pet:Destroy()
@@ -197,16 +194,11 @@ end
 
 local function petAction(player: Player, action: any, uid: any)
     if typeof(action) ~= "string" then return end
-    if action == "EquipBest" then
-        equipBest(player)
-        feedbackRemote:FireClient(player, true, "EQUIPPED BEST")
-        return
-    end
+    if action == "EquipBest" then equipBest(player) feedbackRemote:FireClient(player, true, "EQUIPPED BEST") return end
     if typeof(uid) ~= "string" then return end
     local pets = getPetFolder(player)
     local pet = pets and pets:FindFirstChild(uid)
     if not pet or not pet:IsA("StringValue") then return end
-
     if action == "Equip" then
         equip(player, uid)
     elseif action == "Lock" then
@@ -228,7 +220,6 @@ function PetService.LoadPlayer(player: Player, loadedPets: any, loadedEquipped: 
     local indexFolder = Instance.new("Folder")
     indexFolder.Name = "PetIndex"
     indexFolder.Parent = player
-
     if type(loadedIndex) == "table" then
         for petId, discovered in pairs(loadedIndex) do
             if discovered and Pets.Get(petId) then markIndex(player, petId) end
@@ -259,13 +250,24 @@ end
 
 function PetService.Start()
     hatchRemote.OnServerEvent:Connect(function(player, eggId)
-        local now = os.clock()
-        if now - (lastRequest[player] or 0) < 0.25 then return end
-        lastRequest[player] = now
-        hatch(player, eggId)
+        if allow(player, "Hatch", 0.35) then hatch(player, eggId) end
     end)
-    actionRemote.OnServerEvent:Connect(petAction)
-    fuseRemote.OnServerEvent:Connect(fuse)
+    actionRemote.OnServerEvent:Connect(function(player, action, uid)
+        if allow(player, "Action", 0.10) then petAction(player, action, uid) end
+    end)
+    fuseRemote.OnServerEvent:Connect(function(player, petId, variant)
+        if allow(player, "Fuse", 0.75) then fuse(player, petId, variant) end
+    end)
+    for _, prompt in CollectionService:GetTagged("EggPrompt") do
+        if prompt:IsA("ProximityPrompt") then
+            prompt.Triggered:Connect(function(player)
+                if allow(player, "PromptHatch", 0.35) then hatch(player, prompt:GetAttribute("EggId")) end
+            end)
+        end
+    end
+    game:GetService("Players").PlayerRemoving:Connect(function(player)
+        requestTimes[player] = nil
+    end)
 end
 
 return PetService
