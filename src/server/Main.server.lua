@@ -6,12 +6,14 @@ local SmashService = require(script.Parent.SmashService)
 local DataService = require(script.Parent.DataService)
 local ProgressionService = require(script.Parent.ProgressionService)
 local PetService = require(script.Parent.PetService)
+local ZoneService = require(script.Parent.ZoneService)
 local Upgrades = require(ReplicatedStorage.Shared.Upgrades)
 
 WorldService.Build()
 SmashService.Start()
 ProgressionService.Start()
 PetService.Start()
+ZoneService.Start()
 DataService.StartAutosave()
 
 local function setupPlayer(player: Player)
@@ -34,32 +36,26 @@ local function setupPlayer(player: Player)
     local upgradesFolder = Instance.new("Folder")
     upgradesFolder.Name = "Upgrades"
     upgradesFolder.Parent = player
-
-    for name, cfg in pairs(Upgrades) do
-        if type(cfg) == "table" and cfg.MaxLevel then
-            local value = Instance.new("IntValue")
-            value.Name = name
-            value.Value = loaded.Upgrades[name] or 0
-            value.Parent = upgradesFolder
+    for name,cfg in pairs(Upgrades) do
+        if type(cfg)=="table" and cfg.MaxLevel then
+            local value=Instance.new("IntValue"); value.Name=name; value.Value=loaded.Upgrades[name] or 0; value.Parent=upgradesFolder
         end
     end
 
-    player:SetAttribute("ToolIndex", loaded.ToolIndex)
-    player:SetAttribute("HighestZone", loaded.HighestZone)
+    player:SetAttribute("ToolIndex",loaded.ToolIndex)
+    player:SetAttribute("HighestZone",loaded.HighestZone)
+    player:SetAttribute("CurrentZone",1)
     ProgressionService.ApplyDerivedStats(player)
-    PetService.LoadPlayer(player, loaded.Pets, loaded.Equipped, loaded.PetIndex)
+    PetService.LoadPlayer(player,loaded.Pets,loaded.Equipped,loaded.PetIndex)
 end
 
-for _, player in Players:GetPlayers() do
-    task.spawn(setupPlayer, player)
-end
+for _,player in Players:GetPlayers() do task.spawn(setupPlayer,player) end
 Players.PlayerAdded:Connect(setupPlayer)
 Players.PlayerRemoving:Connect(DataService.Save)
 
 game:BindToClose(function()
-    for _, player in Players:GetPlayers() do
-        DataService.Save(player)
-    end
+    for _,player in Players:GetPlayers() do task.spawn(DataService.Save,player) end
+    task.wait(2)
 end)
 
-print("[TreasureSmash] Tools, upgrades and pets systems started")
+print("[TreasureSmash] Core progression, pets and six-zone world started")
