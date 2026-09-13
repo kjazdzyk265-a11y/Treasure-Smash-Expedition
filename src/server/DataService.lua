@@ -35,6 +35,10 @@ local function sanitizePets(raw: any)
     return result
 end
 
+local function safeTable(raw)
+    return type(raw) == "table" and raw or {}
+end
+
 function DataService.Load(player: Player)
     local data
     local ok, err = pcall(function() data = store:GetAsync(key(player)) end)
@@ -50,9 +54,27 @@ function DataService.Load(player: Player)
         BackpackLoot = math.max(0, math.floor(tonumber(data.BackpackLoot) or 0)),
         Upgrades = sanitizeUpgrades(data.Upgrades),
         Pets = sanitizePets(data.Pets),
-        Equipped = type(data.Equipped) == "table" and data.Equipped or {},
-        PetIndex = type(data.PetIndex) == "table" and data.PetIndex or {},
+        Equipped = safeTable(data.Equipped),
+        PetIndex = safeTable(data.PetIndex),
+        Retention = {
+            Quests = safeTable(data.QuestProgress),
+            ClaimedQuests = safeTable(data.ClaimedQuests),
+            AchievementProgress = safeTable(data.AchievementProgress),
+            Achievements = safeTable(data.Achievements),
+            DailyLastDay = math.floor(tonumber(data.DailyLastDay) or -1),
+            DailyStreak = math.clamp(math.floor(tonumber(data.DailyStreak) or 0), 0, 7),
+        },
     }
+end
+
+local function folderValues(player, folderName)
+    local payload = {}
+    local folder = player:FindFirstChild(folderName)
+    if not folder then return payload end
+    for _, child in folder:GetChildren() do
+        if child:IsA("IntValue") or child:IsA("BoolValue") or child:IsA("StringValue") then payload[child.Name] = child.Value end
+    end
+    return payload
 end
 
 function DataService.Save(player: Player)
@@ -64,10 +86,7 @@ function DataService.Save(player: Player)
     local rebirths = stats and stats:FindFirstChild("Rebirths")
     if not coins or not power or not gems or not rebirths then return end
 
-    local upgradesPayload = {}
-    local upgrades = player:FindFirstChild("Upgrades")
-    if upgrades then for _, child in upgrades:GetChildren() do if child:IsA("IntValue") then upgradesPayload[child.Name] = child.Value end end end
-
+    local upgradesPayload = folderValues(player, "Upgrades")
     local petsPayload = {}
     local petsFolder = player:FindFirstChild("Pets")
     if petsFolder then
@@ -98,6 +117,12 @@ function DataService.Save(player: Player)
         Pets = petsPayload,
         Equipped = equippedPayload,
         PetIndex = indexPayload,
+        QuestProgress = folderValues(player, "QuestProgress"),
+        ClaimedQuests = folderValues(player, "ClaimedQuests"),
+        AchievementProgress = folderValues(player, "AchievementProgress"),
+        Achievements = folderValues(player, "Achievements"),
+        DailyLastDay = player:GetAttribute("DailyLastDay") or -1,
+        DailyStreak = player:GetAttribute("DailyStreak") or 0,
         UpdatedAt = os.time(),
     }
     local ok, err = pcall(function() store:UpdateAsync(key(player), function() return payload end) end)

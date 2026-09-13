@@ -7,6 +7,7 @@ local Variants = require(ReplicatedStorage.Shared.BreakableVariants)
 local Zones = require(ReplicatedStorage.Shared.Zones)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local BackpackService = require(script.Parent.BackpackService)
+local RetentionService = require(script.Parent.RetentionService)
 
 local SmashService = {}
 local lastSmash: {[Player]: number} = {}
@@ -45,11 +46,7 @@ end
 
 local function advanceCombo(player, now)
     local previous = lastComboHit[player] or 0
-    if now - previous <= COMBO_TIMEOUT then
-        comboCount[player] = math.min(25, (comboCount[player] or 0) + 1)
-    else
-        comboCount[player] = 1
-    end
+    if now - previous <= COMBO_TIMEOUT then comboCount[player] = math.min(25, (comboCount[player] or 0) + 1) else comboCount[player] = 1 end
     lastComboHit[player] = now
     local count = comboCount[player]
     local mult = comboMultiplier(count)
@@ -104,6 +101,7 @@ end
 local function handleBossDefeat(player, model)
     local zone = math.clamp(tonumber(model:GetAttribute("Zone")) or 1, 1, #Zones)
     bossRemote:FireAllClients(zone, model.Name, player.Name)
+    RetentionService.Record(player, "BossKill", 1)
     local highest = player:GetAttribute("HighestZone") or 1
     if zone == highest and zone < #Zones then player:SetAttribute("HighestZone", zone + 1) end
 end
@@ -126,9 +124,7 @@ local function processSmash(player, target)
 
     local perfect = false
     local perfectAt = nextPerfectAt[player]
-    if perfectAt and math.abs(now - perfectAt) <= GameConfig.PerfectWindow * 0.5 then
-        perfect = true
-    end
+    if perfectAt and math.abs(now - perfectAt) <= GameConfig.PerfectWindow * 0.5 then perfect = true end
 
     lastSmash[player] = now
     local combo, comboMult = advanceCombo(player, now)
@@ -137,7 +133,10 @@ local function processSmash(player, target)
     damage *= math.max(1, tonumber(player:GetAttribute("PetDamageMultiplier")) or 1)
     local critical = math.random() < math.clamp(tonumber(player:GetAttribute("CritChance")) or GameConfig.BaseCritChance, 0, 0.5)
     if critical then damage *= GameConfig.CritMultiplier end
-    if perfect then damage *= GameConfig.PerfectMultiplier end
+    if perfect then
+        damage *= GameConfig.PerfectMultiplier
+        RetentionService.Record(player, "Perfect", 1)
+    end
 
     local newHealth = math.max(0, health - damage)
     model:SetAttribute("Health", newHealth)
@@ -146,6 +145,7 @@ local function processSmash(player, target)
 
     if newHealth <= 0 then
         model:SetAttribute("Alive", false)
+        RetentionService.Record(player, "SmashKill", 1)
         local reward = math.max(1, math.floor((model:GetAttribute("Reward") or 0) * comboMult + 0.5))
         BackpackService.AddLoot(player, reward)
         local stats = player:FindFirstChild("leaderstats")

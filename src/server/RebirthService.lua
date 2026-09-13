@@ -5,6 +5,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ProgressionService = require(script.Parent.ProgressionService)
 local BackpackService = require(script.Parent.BackpackService)
 local SmashService = require(script.Parent.SmashService)
+local RetentionService = require(script.Parent.RetentionService)
 
 local RebirthService = {}
 local requestRemote = Remotes.GetOrCreate("RequestRebirth")
@@ -21,9 +22,7 @@ end
 local function resetUpgrades(player)
     local folder = player:FindFirstChild("Upgrades")
     if not folder then return end
-    for _, value in folder:GetChildren() do
-        if value:IsA("IntValue") then value.Value = 0 end
-    end
+    for _, value in folder:GetChildren() do if value:IsA("IntValue") then value.Value = 0 end end
 end
 
 local function doRebirth(player)
@@ -48,6 +47,7 @@ local function doRebirth(player)
     rebirthsValue.Value += 1
     gems.Value += gemReward
     player:SetAttribute("Rebirths", rebirthsValue.Value)
+    RetentionService.RecordAbsolute(player, "Rebirth", rebirthsValue.Value)
 
     coins.Value = 0
     power.Value = 1
