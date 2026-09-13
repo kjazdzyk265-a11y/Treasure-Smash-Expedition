@@ -71,7 +71,9 @@ local function processSmash(player: Player, target: Instance?)
     local health = model:GetAttribute("Health")
     if typeof(health) ~= "number" or health <= 0 then return end
 
-    local damage = math.max(1, tonumber(player:GetAttribute("SmashDamage")) or GameConfig.StarterDamage)
+    local baseDamage = math.max(1, tonumber(player:GetAttribute("SmashDamage")) or GameConfig.StarterDamage)
+    local petMultiplier = math.clamp(tonumber(player:GetAttribute("PetDamageMultiplier")) or 1, 1, 1000)
+    local damage = baseDamage * petMultiplier
     local critChance = math.clamp(tonumber(player:GetAttribute("CritChance")) or GameConfig.BaseCritChance, 0, 0.5)
     local critical = math.random() < critChance
     if critical then damage *= GameConfig.CritMultiplier end
